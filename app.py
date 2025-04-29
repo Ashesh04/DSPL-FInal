@@ -3,6 +3,21 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+
+# ======================
+# STREAMLIT DASHBOARD TABS
+# ======================
+
+# Create top-level tabs
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "📋 Overall Overview", 
+    "📊 Visual Analysis", 
+    "👥 Gender Breakdown", 
+    "📍 Location & Population Types", 
+    "🧾 Data Table"
+])
+
+
 # Load dataset
 @st.cache_data
 def load_data():
