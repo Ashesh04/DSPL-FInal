@@ -1,210 +1,109 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
+import plotly.express as px
 
+# Load data
+df = pd.read_csv("revised_demographics_residing_lka.csv")
 
-# ======================
-# STREAMLIT DASHBOARD TABS
-# ======================
+st.set_page_config(layout="wide", page_title="Sri Lanka Population Dashboard")
 
-# Create top-level tabs
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "📋 Overall Overview", 
-    "📊 Visual Analysis", 
-    "👥 Gender Breakdown", 
-    "📍 Location & Population Types", 
-    "🧾 Data Table"
-])
+# Sidebar navigation with buttons
+st.sidebar.title("📊 Navigation")
+tabs = ["Overview", "Geographic Distribution", "Demographics", "Population Type Trends", "Deep Dive Explorer"]
 
+# Create large clickable buttons for navigation
+button_style = """
+    <style>
+        .css-1lsmgbg { font-size: 20px; padding: 18px 40px; margin: 12px 0; background-color: #99c2e6; border-radius: 8px; }
+        .css-1lsmgbg:hover { background-color: #005c99; color: white; }
+        .block-container { padding: 1rem 2rem; }
+        .sidebar .css-1d391kg { position: absolute; top: 0; }
+        .sidebar .css-1d391kg h1 { color: #005c99; font-size: 24px; }
+        .css-1a3yfiq { width: 100%; }
+    </style>
+"""
+st.markdown(button_style, unsafe_allow_html=True)
 
-# Load dataset
-@st.cache_data
-def load_data():
-    return pd.read_csv("revised_demographics_residing_lka.csv")
+# Initialize the selected tab with the first tab by default
+selected_tab = None
 
-df = load_data()
+# Create buttons to select the tabs
+for tab in tabs:
+    if st.sidebar.button(tab, key=tab):
+        selected_tab = tab
 
-# Page setup
-st.set_page_config(page_title="Sri Lanka Demographics Dashboard", layout="wide")
+st.title("🇱🇰 Population Demographics Dashboard - Sri Lanka")
 
-# Title
-st.title("📊 Comprehensive Dashboard: Displaced Populations in Sri Lanka")
+# Common filters
+years = sorted(df['Year'].unique())
+pop_types = sorted(df['Population Type'].unique())
+blue_palette = px.colors.sequential.Blues
 
-# Sidebar Filters
-st.sidebar.header("🔎 Filter Your Data")
+# ---- TAB 1: OVERVIEW ---- #
+if selected_tab == "Overview":
+    st.subheader("Overview & Introduction")
 
-# Year Filter
-years = sorted(df["Year"].unique())
-year_selected = st.sidebar.multiselect("Select Year(s):", years, default=years)
+    st.markdown("""
+    **Welcome to the Sri Lanka Population Demographics Dashboard.**  
+    This dashboard presents a comprehensive overview of displaced and affected populations residing in Sri Lanka, 
+    including refugees, asylum seekers, internally displaced persons (IDPs), and other categories. It is designed 
+    to support government officials and policymakers in making data-driven decisions related to humanitarian assistance, 
+    resource allocation, and long-term planning.
 
-# Population Type Filter
-pop_types = df["Population Type"].unique()
-pop_selected = st.sidebar.multiselect("Select Population Type(s):", pop_types, default=list(pop_types))
+    The data spans from **2001 to the most recent available year**, covering diverse geographic locations and demographic 
+    breakdowns such as gender, age, and living conditions (urban/rural). This initial overview provides key statistics 
+    and trends to contextualize the overall population landscape.
+    """)
 
-# Urban/Rural Filter
-urban_rural = df["urbanRural"].unique()
-urban_selected = st.sidebar.multiselect("Select Urban/Rural Type(s):", urban_rural, default=list(urban_rural))
+    # KPI cards in prominent boxes with enhanced fonts
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.markdown(f"""
+            <div style="padding: 20px; background-color: #f0f0f5; border-radius: 10px; font-size: 20px; 
+                        font-weight: bold; text-align: center; color: #005c99; height: 150px;">
+                Total Population Records<br><span style="font-size: 30px;">{df['Total'].sum():,}</span>
+            </div>
+        """, unsafe_allow_html=True)
+    with col2:
+        st.markdown(f"""
+            <div style="padding: 20px; background-color: #f0f0f5; border-radius: 10px; font-size: 20px; 
+                        font-weight: bold; text-align: center; color: #005c99; height: 150px;">
+                Unique Population Types<br><span style="font-size: 30px;">{df['Population Type'].nunique()}</span>
+            </div>
+        """, unsafe_allow_html=True)
+    with col3:
+        male_total = df[[col for col in df.columns if col.startswith("Male")]].sum().sum()
+        female_total = df[[col for col in df.columns if col.startswith("Female")]].sum().sum()
+        st.markdown(f"""
+            <div style="padding: 20px; background-color: #f0f0f5; border-radius: 10px; font-size: 20px; 
+                        font-weight: bold; text-align: center; color: #005c99; height: 150px;">
+                Gender Ratio (F:M)<br><span style="font-size: 30px;">{female_total:.0f}:{male_total:.0f}</span>
+            </div>
+        """, unsafe_allow_html=True)
 
-# Accommodation Type Filter
-accom_types = df["accommodationType"].unique()
-accom_selected = st.sidebar.multiselect("Select Accommodation Type(s):", accom_types, default=list(accom_types))
+    # Gender pie chart with larger size and enhanced fonts
+    gender_df = pd.DataFrame({
+        'Gender': ['Female', 'Male'],
+        'Count': [female_total, male_total]
+    })
+    fig_gender = px.pie(gender_df, names='Gender', values='Count', title='Gender Distribution',
+                        color_discrete_map={"Female": "#005c99", "Male": "#99c2e6"})
+    fig_gender.update_traces(textposition='inside', textinfo='percent+label', textfont_size=18)
+    fig_gender.update_layout(height=450, margin=dict(t=30, b=30, l=20, r=20), font=dict(size=16))
+    st.plotly_chart(fig_gender, use_container_width=True)
 
-# Filtering dataset
-filtered_df = df[
-    (df["Year"].isin(year_selected)) &
-    (df["Population Type"].isin(pop_selected)) &
-    (df["urbanRural"].isin(urban_selected)) &
-    (df["accommodationType"].isin(accom_selected))
-]
+    # Line chart of total population over years
+    yearly_totals = df.groupby("Year")['Total'].sum().reset_index()
+    fig = px.line(yearly_totals, x="Year", y="Total", title="Total Population Over Time",
+                  markers=True, color_discrete_sequence=blue_palette)
+    fig.update_layout(height=350, margin=dict(t=30, b=30), font=dict(size=16))
+    st.plotly_chart(fig, use_container_width=True)
 
-# Metric cards
-st.metric("👥 Total People (Filtered)", f"{filtered_df['Total'].sum():,}")
-st.metric("📍 Number of Unique Locations", filtered_df['location'].nunique())
-st.metric("🌎 Countries of Origin", filtered_df['Country of Origin Name'].nunique())
-
-st.divider()
-
-# Main Analysis
-
-# 1. Population by Year
-st.subheader("🗓️ Population Over Years")
-pop_by_year = filtered_df.groupby("Year")["Total"].sum()
-st.line_chart(pop_by_year)
-
-# 2. Top Locations
-st.subheader("🏙️ Top 10 Locations by Population")
-top_locations = filtered_df.groupby("location")["Total"].sum().sort_values(ascending=False).head(10)
-st.bar_chart(top_locations)
-
-# 3. Gender Overview + Age Group Breakdown
-st.subheader("👫 Gender Overview and Age Group Breakdown")
-
-# --- Overall Gender Split (Including Unknowns) ---
-st.markdown("### 🧮 Overall Gender Split")
-overall_gender = {
-    "Female Total": filtered_df["Female Total"].sum(),
-    "Male Total": filtered_df["Male Total"].sum(),
-    "Female Unknown": filtered_df["Female Unknown"].sum(),
-    "Male Unknown": filtered_df["Male Unknown"].sum()
-}
-fig_overall, ax_overall = plt.subplots()
-ax_overall.pie(overall_gender.values(), labels=overall_gender.keys(), autopct="%1.1f%%", startangle=90)
-ax_overall.axis("equal")
-st.pyplot(fig_overall)
-
-# --- Female Age Group Breakdown ---
-st.markdown("### 👩 Female Age Group Breakdown")
-female_age_cols = ["Female 0-4", "Female 5-11", "Female 12-17", "Female 18-59", "Female 60 or more"]
-female_ages = filtered_df[female_age_cols].sum()
-fig_female, ax_female = plt.subplots()
-ax_female.pie(female_ages.values, labels=female_ages.index, autopct="%1.1f%%", startangle=90, colors=sns.color_palette("pastel"))
-ax_female.axis("equal")
-st.pyplot(fig_female)
-
-# --- Male Age Group Breakdown ---
-st.markdown("### 👨 Male Age Group Breakdown")
-male_age_cols = ["Male 0-4", "Male 5-11", "Male 12-17", "Male 18-59", "Male 60 or more"]
-male_ages = filtered_df[male_age_cols].sum()
-fig_male, ax_male = plt.subplots()
-ax_male.pie(male_ages.values, labels=male_ages.index, autopct="%1.1f%%", startangle=90, colors=sns.color_palette("muted"))
-ax_male.axis("equal")
-st.pyplot(fig_male)
-
-
-# 4. Urban vs Rural
-st.subheader("🏡 Urban vs Rural Distribution")
-urban_counts = filtered_df["urbanRural"].value_counts()
-fig2, ax2 = plt.subplots()
-urban_counts.plot(kind="bar", color="skyblue", ax=ax2)
-ax2.set_ylabel("Number of Records")
-st.pyplot(fig2)
-
-# 5. Accommodation Types
-st.subheader("🏠 Accommodation Type Distribution")
-accom_counts = filtered_df["accommodationType"].value_counts()
-fig3, ax3 = plt.subplots()
-accom_counts.plot(kind="bar", color="lightgreen", ax=ax3)
-ax3.set_ylabel("Number of Records")
-st.pyplot(fig3)
-
-# 6. Population Type Encoded
-st.subheader("🛂 Population Categories")
-encoded_cols = ["PopType_ASY", "PopType_IDP", "PopType_RDP", "PopType_REF", "PopType_RET"]
-
-encoded_counts = {}
-for col in encoded_cols:
-    encoded_counts[col] = filtered_df[col].sum()
-
-encoded_series = pd.Series(encoded_counts)
-fig4, ax4 = plt.subplots()
-encoded_series.plot(kind="barh", color="coral", ax=ax4)
-ax4.set_xlabel("Number of Cases")
-st.pyplot(fig4)
-
-# 7. Country of Origin vs Asylum
-st.subheader("🌍 Country of Origin vs Country of Asylum")
-origin_asylum = filtered_df.groupby(["Country of Origin Name", "Country of Asylum Name"])["Total"].sum().reset_index()
-st.dataframe(origin_asylum)
-
-st.divider()
-
-# Download filtered dataset
-st.sidebar.download_button(
-    label="📥 Download Filtered Dataset",
-    data=filtered_df.to_csv(index=False),
-    file_name="filtered_sri_lanka_data.csv",
-    mime="text/csv"
-)
-
-st.markdown("Developed for 5DATA004W – Comprehensive Dashboard")
-
-# =============================
-# 1. OVERALL OVERVIEW SECTION
-# =============================
-
-st.header("📋 Overall Overview")
-
-# --- Big KPI Cards ---
-total_population = df["Total"].sum()
-
-# Calculate total Refugees, IDPs, Asylum Seekers
-# Assuming Population Type column has values like REF, IDP, ASY
-relevant_types = ["REF", "IDP", "ASY"]
-total_relevant = df[df["Population Type"].isin(relevant_types)]["Total"].sum()
-
-col1, col2 = st.columns(2)
-
-with col1:
-    st.metric(label="👥 Total Population Residing in Sri Lanka", value=f"{total_population:,}")
-
-with col2:
-    st.metric(label="🛂 Total Refugees, IDPs, Asylum Seekers", value=f"{total_relevant:,}")
-
-st.divider()
-
-# --- Urban vs Rural Pie Chart ---
-st.subheader("🏡 Urban vs Rural Population Split")
-
-urban_rural_counts = df["urbanRural"].value_counts()
-fig_urban_rural, ax_urban_rural = plt.subplots()
-ax_urban_rural.pie(
-    urban_rural_counts.values,
-    labels=urban_rural_counts.index,
-    autopct="%1.1f%%",
-    startangle=90,
-    colors=["#4CAF50", "#2196F3", "#FFC107"]
-)
-ax_urban_rural.axis("equal")
-st.pyplot(fig_urban_rural)
-
-st.divider()
-
-# --- Year Range ---
-st.subheader("📅 Year Range Covered")
-
-earliest_year = df["Year"].min()
-latest_year = df["Year"].max()
-
-st.info(f"**Dataset covers from {earliest_year} to {latest_year}**")
+    # Population by Type over years
+    type_by_year = df.groupby(['Year', 'Population Type'])['Total'].sum().reset_index()
+    fig2 = px.bar(type_by_year, x='Year', y='Total', color='Population Type', 
+                  title='Population by Type Over the Years', barmode='stack',
+                  color_discrete_sequence=blue_palette)
+    fig2.update_layout(height=400, margin=dict(t=40, b=30), font=dict(size=16))
+    st.plotly_chart(fig2, use_container_width=True)
 
