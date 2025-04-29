@@ -107,3 +107,48 @@ if selected_tab == "Overview":
     fig2.update_layout(height=400, margin=dict(t=40, b=30), font=dict(size=16))
     st.plotly_chart(fig2, use_container_width=True)
 
+# Calculate gender totals
+female_total = df["Female Total"].sum()
+male_total = df["Male Total"].sum()
+# ---- Dynamic Pie Chart: Gender vs Age Categories ---- #
+st.markdown("### 🧑‍🤝‍🧑 Population Distribution")
+
+gender_selected = st.radio("View Mode", ["Overall Gender Distribution", "Male Age Categories", "Female Age Categories"], horizontal=True)
+
+if gender_selected == "Overall Gender Distribution":
+    gender_df = pd.DataFrame({
+        'Gender': ['Female', 'Male'],
+        'Count': [female_total, male_total]
+    })
+    fig_gender = px.pie(gender_df, names='Gender', values='Count', title='Gender Distribution',
+                        color_discrete_map={"Female": "#005c99", "Male": "#99c2e6"})
+    fig_gender.update_traces(textposition='inside', textinfo='percent+label', textfont_size=18)
+    fig_gender.update_layout(height=450, margin=dict(t=30, b=30, l=20, r=20), font=dict(size=16))
+    st.plotly_chart(fig_gender, use_container_width=True, key="gender_distribution")
+
+elif gender_selected == "Male Age Categories":
+    male_cols = [col for col in df.columns if col.startswith("Male ") and col != "Male Total"]
+    male_age_totals = df[male_cols].sum().reset_index()
+    male_age_totals.columns = ['Age Category', 'Count']
+    male_age_totals['Age Category'] = male_age_totals['Age Category'].str.replace("Male ", "", regex=False)
+
+    fig_male_pie = px.pie(male_age_totals, names='Age Category', values='Count', title='Male Age Category Distribution',
+                          color_discrete_sequence=blue_palette)
+    fig_male_pie.update_traces(textposition='inside', textinfo='percent+label', textfont_size=18)
+    fig_male_pie.update_layout(height=450, margin=dict(t=30, b=30, l=20, r=20), font=dict(size=16))
+    st.plotly_chart(fig_male_pie, use_container_width=True, key="male_age_distribution")
+
+elif gender_selected == "Female Age Categories":
+    female_cols = [col for col in df.columns if col.startswith("Female ") and col != "Female Total"]
+    female_age_totals = df[female_cols].sum().reset_index()
+    female_age_totals.columns = ['Age Category', 'Count']
+    female_age_totals['Age Category'] = female_age_totals['Age Category'].str.replace("Female ", "", regex=False)
+
+    fig_female_pie = px.pie(female_age_totals, names='Age Category', values='Count', title='Female Age Category Distribution',
+                            color_discrete_sequence=blue_palette)
+    fig_female_pie.update_traces(textposition='inside', textinfo='percent+label', textfont_size=18)
+    fig_female_pie.update_layout(height=450, margin=dict(t=30, b=30, l=20, r=20), font=dict(size=16))
+    st.plotly_chart(fig_female_pie, use_container_width=True, key="female_age_distribution")
+
+
+
