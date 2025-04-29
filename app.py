@@ -62,16 +62,40 @@ st.subheader("🏙️ Top 10 Locations by Population")
 top_locations = filtered_df.groupby("location")["Total"].sum().sort_values(ascending=False).head(10)
 st.bar_chart(top_locations)
 
-# 3. Gender Breakdown
-st.subheader("👫 Gender Breakdown")
+# 3. Gender Overview + Age Group Breakdown
+st.subheader("👫 Gender Overview and Age Group Breakdown")
 
-gender_cols = ["Female Total", "Male Total", "Female Unknown", "Male Unknown"]
-gender_totals = filtered_df[gender_cols].sum()
+# --- Overall Gender Split (Including Unknowns) ---
+st.markdown("### 🧮 Overall Gender Split")
+overall_gender = {
+    "Female Total": filtered_df["Female Total"].sum(),
+    "Male Total": filtered_df["Male Total"].sum(),
+    "Female Unknown": filtered_df["Female Unknown"].sum(),
+    "Male Unknown": filtered_df["Male Unknown"].sum()
+}
+fig_overall, ax_overall = plt.subplots()
+ax_overall.pie(overall_gender.values(), labels=overall_gender.keys(), autopct="%1.1f%%", startangle=90)
+ax_overall.axis("equal")
+st.pyplot(fig_overall)
 
-fig, ax = plt.subplots()
-ax.pie(gender_totals, labels=gender_cols, autopct="%1.1f%%", startangle=140)
-ax.axis("equal")
-st.pyplot(fig)
+# --- Female Age Group Breakdown ---
+st.markdown("### 👩 Female Age Group Breakdown")
+female_age_cols = ["Female 0-4", "Female 5-11", "Female 12-17", "Female 18-59", "Female 60 or more"]
+female_ages = filtered_df[female_age_cols].sum()
+fig_female, ax_female = plt.subplots()
+ax_female.pie(female_ages.values, labels=female_ages.index, autopct="%1.1f%%", startangle=90, colors=sns.color_palette("pastel"))
+ax_female.axis("equal")
+st.pyplot(fig_female)
+
+# --- Male Age Group Breakdown ---
+st.markdown("### 👨 Male Age Group Breakdown")
+male_age_cols = ["Male 0-4", "Male 5-11", "Male 12-17", "Male 18-59", "Male 60 or more"]
+male_ages = filtered_df[male_age_cols].sum()
+fig_male, ax_male = plt.subplots()
+ax_male.pie(male_ages.values, labels=male_ages.index, autopct="%1.1f%%", startangle=90, colors=sns.color_palette("muted"))
+ax_male.axis("equal")
+st.pyplot(fig_male)
+
 
 # 4. Urban vs Rural
 st.subheader("🏡 Urban vs Rural Distribution")
@@ -119,3 +143,53 @@ st.sidebar.download_button(
 )
 
 st.markdown("Developed for 5DATA004W – Comprehensive Dashboard")
+
+# =============================
+# 1. OVERALL OVERVIEW SECTION
+# =============================
+
+st.header("📋 Overall Overview")
+
+# --- Big KPI Cards ---
+total_population = df["Total"].sum()
+
+# Calculate total Refugees, IDPs, Asylum Seekers
+# Assuming Population Type column has values like REF, IDP, ASY
+relevant_types = ["REF", "IDP", "ASY"]
+total_relevant = df[df["Population Type"].isin(relevant_types)]["Total"].sum()
+
+col1, col2 = st.columns(2)
+
+with col1:
+    st.metric(label="👥 Total Population Residing in Sri Lanka", value=f"{total_population:,}")
+
+with col2:
+    st.metric(label="🛂 Total Refugees, IDPs, Asylum Seekers", value=f"{total_relevant:,}")
+
+st.divider()
+
+# --- Urban vs Rural Pie Chart ---
+st.subheader("🏡 Urban vs Rural Population Split")
+
+urban_rural_counts = df["urbanRural"].value_counts()
+fig_urban_rural, ax_urban_rural = plt.subplots()
+ax_urban_rural.pie(
+    urban_rural_counts.values,
+    labels=urban_rural_counts.index,
+    autopct="%1.1f%%",
+    startangle=90,
+    colors=["#4CAF50", "#2196F3", "#FFC107"]
+)
+ax_urban_rural.axis("equal")
+st.pyplot(fig_urban_rural)
+
+st.divider()
+
+# --- Year Range ---
+st.subheader("📅 Year Range Covered")
+
+earliest_year = df["Year"].min()
+latest_year = df["Year"].max()
+
+st.info(f"**Dataset covers from {earliest_year} to {latest_year}**")
+
