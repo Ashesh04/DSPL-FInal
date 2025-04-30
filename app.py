@@ -1,6 +1,4 @@
 import streamlit as st
-st.set_page_config(layout="wide", page_title="Sri Lanka Population Dashboard")  # ✅ Must be first Streamlit command
-
 import pandas as pd
 import plotly.express as px
 import folium
@@ -109,14 +107,8 @@ if selected_tab == "Overview":
         st.dataframe(df.head(20))
 
 
-
-# ---- Geographic Distribution Page ---- #
+# ---- Geographic Distribution PAGE ---- #
 elif selected_tab == "Geographic Distribution":
-    import folium
-    from folium.plugins import MarkerCluster
-    import streamlit.components.v1 as components
-    import plotly.express as px
-
     st.subheader("🌍 Geographic Distribution")
 
     # Sidebar filters
@@ -154,11 +146,6 @@ elif selected_tab == "Geographic Distribution":
     st.markdown("### Population Distribution Map")
     components.html(m._repr_html_(), height=500)
 
-    st.markdown("""
-        This interactive map shows population distribution in Sri Lanka across multiple years and population types. 
-        Use the filters on the sidebar to explore the data.
-    """)
-
     # Horizontal Bar Chart: Top 10 locations by total population
     st.markdown("### 📍 Top 10 Locations by Total Population")
 
@@ -186,9 +173,8 @@ elif selected_tab == "Geographic Distribution":
     st.plotly_chart(fig, use_container_width=True)
 
 
+# ---- Demographics PAGE ---- #
 elif selected_tab == "Demographics":
-    import plotly.express as px
-
     st.subheader("👥 Demographics by Age and Gender")
 
     # --- Filters --- #
@@ -263,83 +249,8 @@ elif selected_tab == "Demographics":
         color="Gender",
         barmode="stack",
         title="Stacked Age & Gender Distribution",
-        color_discrete_map={"Male": "#5DADE2", "Female": "#AF7AC5"}
+        color_discrete_map={"Male": "#5DADE2", "Female": "#F1948A"}
     )
-    fig_bar.update_layout(xaxis_title="Age Group", yaxis_title="Population Count")
+    fig_bar.update_layout(height=500)
     st.plotly_chart(fig_bar, use_container_width=True)
-
-    # --- Gender and Population Type Relationship --- #
-    st.markdown("### 🔍 Gender and Population Type Relationship")
-
-    selected_years = st.multiselect("Select Year(s)", years, default=years)
-    selected_pop_type_radio = st.radio("Select Population Type", population_types)
-
-    relation_df = df[(df['Year'].isin(selected_years)) & (df['Population Type'] == selected_pop_type_radio)]
-
-    male_long = relation_df.melt(id_vars=['Year', 'Population Type'], value_vars=male_cols, var_name='Age Group', value_name='Count')
-    male_long['Gender'] = 'Male'
-    male_long['Age Group'] = male_long['Age Group'].str.replace('Male ', '')
-
-    female_long = relation_df.melt(id_vars=['Year', 'Population Type'], value_vars=female_cols, var_name='Age Group', value_name='Count')
-    female_long['Gender'] = 'Female'
-    female_long['Age Group'] = female_long['Age Group'].str.replace('Female ', '')
-
-    combined_long = pd.concat([male_long, female_long])
-
-    fig_combo = px.bar(
-        combined_long,
-        x='Age Group',
-        y='Count',
-        color='Gender',
-        facet_col='Population Type',
-        barmode='group',
-        category_orders={"Age Group": ["0-4", "5-11", "12-17", "18-59", "60 or more"]},
-        title="Gender and Age Distribution by Population Type",
-        color_discrete_map={"Male": "#5DADE2", "Female": "#AF7AC5"}
-    )
-    fig_combo.update_layout(height=600, xaxis_title="Age Group", yaxis_title="Population Count")
-    st.plotly_chart(fig_combo, use_container_width=True)
-
-    st.markdown("This chart highlights the relationship between gender, age groups, and different population types across selected years.")
-
-
-elif selected_tab == "Population Trends":
-    import plotly.express as px
-    import pandas as pd
-
-    st.subheader("📈 Population Trends Over Time")
-
-    # --- Filters --- #
-    years = sorted(df['Year'].unique())
-    population_types = sorted(df['Population Type'].unique())
-    
-    # Multiselect for years and population types
-    selected_years = st.sidebar.multiselect("Select Year(s)", years, default=years[-5:])  # Default: last 5 years
-    selected_pop_types = st.sidebar.multiselect("Select Population Types", population_types, default=population_types)
-
-    # Filter Data based on selected year(s) and population type(s)
-    filtered_df = df[(df['Year'].isin(selected_years)) & (df['Population Type'].isin(selected_pop_types))]
-
-    # --- Line Chart: Total Population Trend Over Time ---
-    st.markdown("### Total Population Trend Over Time")
-    total_pop_df = filtered_df.groupby(['Year', 'Population Type'])['Total Population'].sum().reset_index()
-
-    fig_line = px.line(total_pop_df, x="Year", y="Total Population", color="Population Type",
-                       title="Total Population Trend by Population Type", markers=True)
-    fig_line.update_layout(xaxis_title="Year", yaxis_title="Population Count")
-    st.plotly_chart(fig_line, use_container_width=True)
-
-    # --- Grouped Bar Chart: Yearly Comparison by Population Type ---
-    st.markdown("### Yearly Comparison by Population Type")
-    
-    grouped_df = filtered_df.groupby(['Year', 'Population Type'])['Total Population'].sum().reset_index()
-    
-    fig_bar = px.bar(grouped_df, x="Year", y="Total Population", color="Population Type", barmode='group',
-                     title="Population Comparison by Year and Population Type")
-    fig_bar.update_layout(xaxis_title="Year", yaxis_title="Population Count")
-    st.plotly_chart(fig_bar, use_container_width=True)
-
-    # --- Insights Section ---
-    st.markdown("### Insights")
-    st.write("Based on the charts above, you can summarize trends in population growth, which population types have seen the most growth, and any shifts in population patterns.")
 
