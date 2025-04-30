@@ -5,6 +5,11 @@ import folium
 from folium.plugins import MarkerCluster
 import streamlit.components.v1 as components
 
+# Load your data
+df = pd.read_csv("revised_demographics_residing_lka.csv")
+
+# ⬅️ This must come early
+page = st.sidebar.selectbox("Select a Page", ["Overview", "Geographic Distribution", "Demographics", "Population Type Trends", "Deep Dive Explorer"])
 # Load data
 df = pd.read_csv("revised_demographics_residing_lka.csv")
 
@@ -173,84 +178,40 @@ elif selected_tab == "Geographic Distribution":
     st.plotly_chart(fig, use_container_width=True)
 
 
-# ---- Demographics PAGE ---- #
-elif selected_tab == "Demographics":
-    st.subheader("👥 Demographics by Age and Gender")
+# ---- Population Type Trends PAGE ---- #
+elif selected_tab == "Population Type Trends":
+    st.subheader("📈 Population Type Trends")
 
-    # --- Filters --- #
+    # Sidebar filters
     years = sorted(df['Year'].unique())
     population_types = sorted(df['Population Type'].unique())
-    selected_year = st.sidebar.selectbox("Select Year", years, index=len(years)-1)
-    selected_pop_type = st.sidebar.selectbox("Select Population Type", population_types)
+    selected_years = st.sidebar.multiselect("Select Year(s)", years, default=years)
+    selected_pop_types = st.sidebar.multiselect("Select Population Type(s)", population_types, default=population_types)
 
-    # Filtered data
-    demo_df = df[(df['Year'] == selected_year) & (df['Population Type'] == selected_pop_type)]
+    # Filter data
+    filtered_df = df[df['Year'].isin(selected_years) & df['Population Type'].isin(selected_pop_types)]
 
-    # --- Radio Buttons for Pie Charts --- #
-    st.markdown("### 👤 Gender & Age Distribution Overview")
-    chart_mode = st.radio("Choose View", ["Overall Gender Distribution", "Male Age Categories", "Female Age Categories"], horizontal=True)
+    # Line chart for population trends
+    st.markdown("### 📉 Population Type Trends Over Time")
+    trend_data = filtered_df.groupby(['Year', 'Population Type'])['Total'].sum().reset_index()
+    fig_trends = px.line(trend_data, x='Year', y='Total', color='Population Type',
+                         title="Population Type Trends Over Time", markers=True)
+    st.plotly_chart(fig_trends, use_container_width=True)
 
-    # Preprocess counts
-    male_cols = [col for col in df.columns if col.startswith("Male ") and col != "Male Total"]
-    female_cols = [col for col in df.columns if col.startswith("Female ") and col != "Female Total"]
-    total_male = demo_df[male_cols].sum().sum()
-    total_female = demo_df[female_cols].sum().sum()
+    # Gender Distribution Chart (inside this block to avoid NameError)
+    st.markdown("### 🧍‍♂️🧍‍♀️ Gender Distribution by Population Type")
+    gender_df = filtered_df.groupby("Population Type")[["Female Total", "Male Total"]].sum().reset_index()
 
-    # 1. Overall Gender Distribution
-    if chart_mode == "Overall Gender Distribution":
-        gender_data = pd.DataFrame({
-            "Gender": ["Male", "Female"],
-            "Count": [total_male, total_female]
-        })
-        fig = px.pie(gender_data, names="Gender", values="Count", title="Gender Distribution",
-                     color_discrete_sequence=px.colors.qualitative.Bold)
-        fig.update_traces(textposition='inside', textinfo='percent+label',
-                          textfont_size=16, textfont_color='white', textfont_family='Arial')
-        st.plotly_chart(fig, use_container_width=True)
+    if gender_df.empty:
+        st.warning("No gender data available for the selected filters.")
+    else:
+        gender_melted = gender_df.melt(id_vars="Population Type",
+                                       value_vars=["Female Total", "Male Total"],
+                                       var_name="Gender", value_name="Total")
+        fig_gender = px.bar(gender_melted, x="Population Type", y="Total",
+                            color="Gender", barmode="group",
+                            title="Gender Distribution across Population Types")
+        st.plotly_chart(fig_gender, use_container_width=True)
 
-    # 2. Male Age Categories
-    elif chart_mode == "Male Age Categories":
-        male_age_data = demo_df[male_cols].sum().reset_index()
-        male_age_data.columns = ["Age Group", "Count"]
-        male_age_data["Age Group"] = male_age_data["Age Group"].str.replace("Male ", "")
-        fig = px.pie(male_age_data, names="Age Group", values="Count", title="Male Age Distribution",
-                     color_discrete_sequence=px.colors.qualitative.Bold)
-        fig.update_traces(textposition='inside', textinfo='percent+label',
-                          textfont_size=16, textfont_color='white', textfont_family='Arial')
-        st.plotly_chart(fig, use_container_width=True)
 
-    # 3. Female Age Categories
-    elif chart_mode == "Female Age Categories":
-        female_age_data = demo_df[female_cols].sum().reset_index()
-        female_age_data.columns = ["Age Group", "Count"]
-        female_age_data["Age Group"] = female_age_data["Age Group"].str.replace("Female ", "")
-        fig = px.pie(female_age_data, names="Age Group", values="Count", title="Female Age Distribution",
-                     color_discrete_sequence=px.colors.qualitative.Bold)
-        fig.update_traces(textposition='inside', textinfo='percent+label',
-                          textfont_size=16, textfont_color='white', textfont_family='Arial')
-        st.plotly_chart(fig, use_container_width=True)
-
-    # --- Stacked Bar Chart --- #
-    st.markdown("### 📊 Stacked Bar Chart: Population by Age & Gender")
-
-    # Combine male and female by age group
-    age_groups = [col.replace("Male ", "") for col in male_cols]
-    stacked_data = pd.DataFrame({
-        "Age Group": age_groups,
-        "Male": demo_df[male_cols].sum().values,
-        "Female": demo_df[female_cols].sum().values
-    })
-    stacked_melted = stacked_data.melt(id_vars="Age Group", var_name="Gender", value_name="Count")
-
-    fig_bar = px.bar(
-        stacked_melted,
-        x="Age Group",
-        y="Count",
-        color="Gender",
-        barmode="stack",
-        title="Stacked Age & Gender Distribution",
-        color_discrete_map={"Male": "#5DADE2", "Female": "#F1948A"}
-    )
-    fig_bar.update_layout(height=500)
-    st.plotly_chart(fig_bar, use_container_width=True)
 
