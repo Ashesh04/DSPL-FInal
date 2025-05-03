@@ -8,17 +8,33 @@ from PIL import Image
 import math
 from streamlit_folium import st_folium
 
-
 st.set_page_config(layout="wide")
-df = pd.read_csv("revised_demographics_residing_lka.csv")
 
+st.markdown("""
+    <style>
+        .block-container {
+            padding-top: 1rem;
+            padding-bottom: 0rem;
+            padding-left: 3rem;
+            padding-right: 3rem;
+        }
+        [data-testid="stSidebar"] {
+            width: 300px !important;
+        }
+        .st-emotion-cache-1y4p8pa {
+            max-width: 100% !important;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
+
+df = pd.read_csv("revised_demographics_residing_lka.csv")
 
 import streamlit as st
 from PIL import Image
 
 header = Image.open("cover.jpeg")
 st.image(header, width=250)  # Ultra-compact 250px width
-
 
 # Load and standardize data
 @st.cache_data
@@ -177,44 +193,27 @@ if selected_tab == "Geographic Distribution":
         "Other": (7.8731, 80.7718),
     }
 
-    # Create tabs
-    map_tab, heatmap_tab = st.tabs(["Point Map", "Heatmap"])
+    # Create map (removed the tabs and heatmap)
+    st.markdown("### 📍 Population Distribution by Location")
+    m = folium.Map(location=[7.8731, 80.7718], zoom_start=7, tiles="CartoDB positron")
 
-    with map_tab:
-        st.markdown("### 📍 Population Distribution by Location")
-        m = folium.Map(location=[7.8731, 80.7718], zoom_start=7, tiles="CartoDB positron")
+    for idx, row in location_data.iterrows():
+        location = row['clean_location']
+        population = row['Total']
+        lat, lon = location_coords.get(location, (7.8731, 80.7718))
 
-        for idx, row in location_data.iterrows():
-            location = row['clean_location']
-            population = row['Total']
-            lat, lon = location_coords.get(location, (7.8731, 80.7718))
+        folium.CircleMarker(
+            location=[lat, lon],
+            radius=3 + (population / 100000),
+            popup=f"{location}<br>Population: {population:,}",
+            color='#3186cc',
+            fill=True,
+            fill_color='#3186cc',
+            fill_opacity=0.6,
+            weight=1
+        ).add_to(m)
 
-            folium.CircleMarker(
-                location=[lat, lon],
-                radius=3 + (population / 100000),
-                popup=f"{location}<br>Population: {population:,}",
-                color='#3186cc',
-                fill=True,
-                fill_color='#3186cc',
-                fill_opacity=0.6,
-                weight=1
-            ).add_to(m)
-
-        st_folium(m, width=700, height=500)
-
-    with heatmap_tab:
-        st.markdown("### 🔥 Population Density Heatmap")
-        hm = folium.Map(location=[7.8731, 80.7718], zoom_start=7, tiles="CartoDB dark_matter")
-
-        heat_data = []
-        for idx, row in location_data.iterrows():
-            location = row['clean_location']
-            population = row['Total']
-            lat, lon = location_coords.get(location, (7.8731, 80.7718))
-            heat_data.append([lat, lon, min(population, 50000)])
-
-        HeatMap(heat_data, radius=15, blur=10).add_to(hm)
-        st_folium(hm, width=700, height=500)
+    st_folium(m, width=700, height=500)
 
     st.markdown("### 📊 Top 10 Locations by Total Population")
     bar_data = filtered_df.groupby(['location', 'Population Type'])['Total'].sum().reset_index()
@@ -233,7 +232,6 @@ if selected_tab == "Geographic Distribution":
     )
     fig.update_layout(height=500)
     st.plotly_chart(fig, use_container_width=True)
-
 
 # ---- Demographics PAGE ---- #
 elif selected_tab == "Demographics":
@@ -509,16 +507,24 @@ elif selected_tab == "Deep Dive Explorer":
 
         # Visual: Bar Chart
         chart_type = st.radio("Choose Chart Type", ["Bar Chart", "Line Chart"])
-        group_by_col = st.selectbox("Group By", ["Year", "location", "Population Type", "urbanRural"])
+        group_by_col = st.selectbox("Group By", ["Year", "location", "Population Type", "urbanRural"],
+                                  help="Selecting 'Year' for line chart will show overall trend")
 
         if chart_type == "Bar Chart":
             bar_df = filtered_df.groupby(group_by_col)["Total"].sum().reset_index()
             fig = px.bar(bar_df, x=group_by_col, y="Total", title="Total Population by " + group_by_col)
             st.plotly_chart(fig, use_container_width=True)
         else:
-            line_df = filtered_df.groupby(["Year", group_by_col])["Total"].sum().reset_index()
-            fig = px.line(line_df, x="Year", y="Total", color=group_by_col, markers=True,
-                        title="Population Trend by " + group_by_col)
+            # Modified line chart code to handle Year grouping
+            if group_by_col == "Year":
+                # If grouping by Year, just group by Year alone
+                line_df = filtered_df.groupby("Year")["Total"].sum().reset_index()
+                fig = px.line(line_df, x="Year", y="Total", title="Population Trend Over Time")
+            else:
+                # For other groupings, use the original logic
+                line_df = filtered_df.groupby(["Year", group_by_col])["Total"].sum().reset_index()
+                fig = px.line(line_df, x="Year", y="Total", color=group_by_col, markers=True,
+                            title="Population Trend by " + group_by_col)
             st.plotly_chart(fig, use_container_width=True)
 
     # --- TAB 2: Summary Stats --- #
@@ -546,4 +552,3 @@ elif selected_tab == "Deep Dive Explorer":
         st.dataframe(filtered_df)
         csv = filtered_df.to_csv(index=False).encode("utf-8")
         st.download_button("Download CSV", data=csv, file_name="filtered_population_data.csv", mime="text/csv")
-
